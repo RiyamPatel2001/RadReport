@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RadReport — AI Radiology Report Generator</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230A0E1A'/><path d='M16 7v18M7 16h18' stroke='%2300C2D1' stroke-width='3.5' stroke-linecap='round'/></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,400&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-primary:     #0A0E1A;
+      --bg-secondary:   #0F1525;
+      --bg-panel:       #111827;
+      --bg-panel-alt:   #0D1320;
+      --border:         #1E2A3A;
+      --border-muted:   #162030;
+      --cyan:           #00C2D1;
+      --cyan-dim:       rgba(0, 194, 209, 0.12);
+      --cyan-glow:      rgba(0, 194, 209, 0.06);
+      --text-primary:   #E8EDF5;
+      --text-secondary: #7A8BA0;
+      --text-muted:     #3D5068;
+      --text-ghost:     #1E2D3D;
+      --font-ui:        'Space Grotesk', system-ui, sans-serif;
+      --font-report:    'Source Serif 4', Georgia, serif;
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      background-color: var(--bg-secondary);
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+    }
+
+    .header-logo {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: var(--text-primary);
+    }
+
+    .header-logo span {
+      color: var(--cyan);
+    }
+
+    .header-subtitle {
+      font-size: 11px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .header-badge {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--cyan);
+      border: 1px solid rgba(0, 194, 209, 0.3);
+      padding: 3px 8px;
+      border-radius: 3px;
+      background: var(--cyan-glow);
+    }
+
+    /* ── Main layout ── */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      grid-template-rows: 1fr;
+      gap: 0;
+      overflow: hidden;
+    }
+
+    /* ── Left panel — Upload ── */
+    .panel-upload {
+      border-right: 1px solid var(--border);
+      background-color: var(--bg-panel-alt);
+      display: flex;
+      flex-direction: column;
+      padding: 28px;
+      gap: 24px;
+      overflow-y: auto;
+    }
+
+    .panel-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border-muted);
+    }
+
+    /* ── Drop zone ── */
+    .drop-zone {
+      border: 1.5px dashed var(--border);
+      border-radius: 8px;
+      padding: 48px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background-color 0.2s;
+      position: relative;
+      background: var(--bg-panel);
+      min-height: 280px;
+    }
+
+    .drop-zone:hover {
+      border-color: rgba(0, 194, 209, 0.4);
+      background-color: var(--cyan-glow);
+    }
+
+    /* Drag-over highlight */
+    .drop-zone.drag-over {
+      border-color: var(--cyan);
+      background-color: var(--cyan-dim);
+    }
+
+    .drop-zone-icon {
+      width: 56px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    .drop-zone-icon svg {
+      width: 100%;
+      height: 100%;
+      opacity: 0.35;
+      pointer-events: none;
+    }
+
+    .drop-zone-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      line-height: 1.4;
+      pointer-events: none;
+    }
+
+    .drop-zone-title strong {
+      display: block;
+      color: var(--text-primary);
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .drop-zone-formats {
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+      pointer-events: none;
+    }
+
+    .upload-btn {
+      margin-top: 4px;
+      padding: 9px 20px;
+      font-family: var(--font-ui);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--cyan);
+      background: var(--cyan-dim);
+      border: 1px solid rgba(0, 194, 209, 0.25);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .upload-btn:hover {
+      background: rgba(0, 194, 209, 0.2);
+      border-color: rgba(0, 194, 209, 0.5);
+    }
+
+    /* ── Image preview ── */
+    .preview-section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .preview-frame {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg-panel);
+      aspect-ratio: 1 / 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+      transition: border-color 0.2s;
+    }
+
+    /* Border highlight when image is loaded */
+    .preview-frame.has-image {
+      border-color: rgba(0, 194, 209, 0.25);
+    }
+
+    .preview-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-ghost);
+    }
+
+    .preview-empty svg {
+      width: 40px;
+      height: 40px;
+    }
+
+    .preview-empty-text {
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* The actual preview image */
+    .preview-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: none;
+    }
+
+    /* × reset button overlaid on preview */
+    .reset-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: rgba(10, 14, 26, 0.82);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 15px;
+      line-height: 1;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      font-family: var(--font-ui);
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+
+    .reset-btn:hover {
+      background: rgba(10, 14, 26, 0.96);
+      color: var(--cyan);
+      border-color: rgba(0, 194, 209, 0.4);
+    }
+
+    /* ── Meta row ── */
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      background: var(--border);
+    }
+
+    .meta-cell {
+      background: var(--bg-panel);
+      padding: 10px 14px;
+    }
+
+    .meta-key {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+    }
+
+    .meta-value {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-ghost);
+      font-family: 'Space Grotesk', monospace;
+      transition: color 0.2s;
+    }
+
+    .meta-value.populated {
+      color: var(--text-secondary);
+    }
+
+    /* ── API key input ── */
+    .api-key-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .api-key-input-wrap {
+      display: flex;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      background: var(--bg-panel);
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+
+    .api-key-input-wrap:focus-within {
+      border-color: rgba(0, 194, 209, 0.4);
+    }
+
+    .api-key-input {
+      flex: 1;
+      padding: 10px 12px;
+      font-family: 'Space Grotesk', monospace;
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-primary);
+      background: transparent;
+      border: none;
+      outline: none;
+      letter-spacing: 0.04em;
+    }
+
+    .api-key-input::placeholder {
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+    }
+
+    .api-key-toggle {
+      padding: 0 12px;
+      height: 100%;
+      background: transparent;
+      border: none;
+      border-left: 1px solid var(--border-muted);
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.15s;
+      flex-shrink: 0;
+    }
+
+    .api-key-toggle:hover {
+      color: var(--text-secondary);
+    }
+
+    .api-key-toggle svg {
+      width: 15px;
+      height: 15px;
+      pointer-events: none;
+    }
+
+    .api-key-hint {
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+    }
+
+    .api-key-hint a {
+      color: var(--cyan);
+      text-decoration: none;
+      opacity: 0.8;
+    }
+
+    .api-key-hint a:hover {
+      opacity: 1;
+    }
+
+    /* ── Analyze button ── */
+    .analyze-btn {
+      width: 100%;
+      padding: 13px;
+      font-family: var(--font-ui);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--bg-primary);
+      background: var(--cyan);
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      opacity: 0.35;
+      pointer-events: none;
+      transition: opacity 0.2s, background 0.15s;
+    }
+
+    .analyze-btn.active {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .analyze-btn.active:hover {
+      background: #00D9E8;
+    }
+
+    /* ── Right panel — Report ── */
+    .panel-report {
+      background-color: var(--bg-panel);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .report-header {
+      border-bottom: 1px solid var(--border);
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .report-header-left {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .report-title-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .report-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .report-timestamp {
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+      display: none;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      opacity: 0.4;
+      flex-shrink: 0;
+      transition: background 0.3s, opacity 0.3s;
+    }
+
+    .status-dot.ready {
+      background: var(--cyan);
+      opacity: 1;
+    }
+
+    .report-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .action-btn {
+      padding: 6px 14px;
+      font-family: var(--font-ui);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      cursor: pointer;
+      opacity: 0.4;
+      pointer-events: none;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    /* ── Report body ── */
+    .report-body {
+      flex: 1;
+      padding: 40px 40px 60px;
+      font-family: var(--font-report);
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+    }
+
+    .report-section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .report-section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .section-number {
+      font-family: var(--font-ui);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: var(--text-ghost);
+      width: 20px;
+      flex-shrink: 0;
+    }
+
+    .section-title {
+      font-family: var(--font-ui);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-ghost);
+    }
+
+    .section-divider {
+      flex: 1;
+      height: 1px;
+      background: var(--border-muted);
+    }
+
+    .section-content {
+      padding-left: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* Ghost text lines */
+    .ghost-line {
+      height: 13px;
+      border-radius: 3px;
+      background: var(--text-ghost);
+      opacity: 0.35;
+    }
+
+    .ghost-line.w-full  { width: 100%; }
+    .ghost-line.w-90    { width: 90%; }
+    .ghost-line.w-80    { width: 80%; }
+    .ghost-line.w-70    { width: 70%; }
+    .ghost-line.w-60    { width: 60%; }
+    .ghost-line.w-50    { width: 50%; }
+    .ghost-line.w-45    { width: 45%; }
+    .ghost-line.gap-top { margin-top: 6px; }
+
+    .report-body-wrap {
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .placeholder-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .placeholder-overlay svg {
+      width: 44px;
+      height: 44px;
+      color: var(--text-ghost);
+      opacity: 0.5;
+    }
+
+    .placeholder-overlay-title {
+      font-family: var(--font-ui);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-ghost);
+      opacity: 0.8;
+    }
+
+    .placeholder-overlay-sub {
+      font-family: var(--font-ui);
+      font-size: 11px;
+      color: var(--text-ghost);
+      opacity: 0.5;
+      letter-spacing: 0.05em;
+    }
+
+    .ghost-overlay {
+      opacity: 0.4;
+    }
+
+    /* ── Live report panel ── */
+    #reportLive {
+      display: none;
+      flex-direction: column;
+      gap: 36px;
+      padding: 40px 40px 60px;
+      font-family: var(--font-report);
+    }
+
+    /* Promote ghost-dim colors to real ones in the live panel */
+    #reportLive .section-number  { color: var(--cyan); }
+    #reportLive .section-title   { color: var(--text-primary); letter-spacing: 0.16em; }
+    #reportLive .section-divider { background: var(--border); }
+
+    .report-para {
+      font-family: var(--font-report);
+      font-size: 15px;
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+
+    .report-subheading {
+      font-family: var(--font-ui);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-top: 12px;
+    }
+
+    .report-ul,
+    .report-ol {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 0;
+    }
+
+    .report-ul .report-li {
+      border-left: 2px solid var(--border);
+      padding-left: 12px;
+      color: var(--text-secondary);
+      font-family: var(--font-report);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .report-ol {
+      counter-reset: report-counter;
+    }
+
+    .report-ol .report-li {
+      counter-increment: report-counter;
+      position: relative;
+      padding-left: 28px;
+      color: var(--text-secondary);
+      font-family: var(--font-report);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .report-ol .report-li::before {
+      content: counter(report-counter) ".";
+      position: absolute;
+      left: 0;
+      color: var(--cyan);
+      font-family: var(--font-ui);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .report-li strong,
+    .report-para strong {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    /* Active state for Export / Copy action buttons */
+    .action-btn.active {
+      opacity: 1;
+      pointer-events: all;
+      color: var(--text-secondary);
+    }
+
+    .action-btn.active:hover {
+      color: var(--text-primary);
+      border-color: rgba(255,255,255,0.15);
+    }
+
+    /* ── Keyframes ── */
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes scanLine {
+      0%   { transform: translateY(0); }
+      100% { transform: translateY(calc(var(--frame-h, 340px))); }
+    }
+
+    @keyframes sectionFadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Loading spinner (right panel) ── */
+    #loadingSpinner {
+      position: absolute;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    .spinner-ring {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 3px solid var(--border);
+      border-top-color: var(--cyan);
+      animation: spin 0.9s linear infinite;
+    }
+
+    .spinner-text {
+      font-family: var(--font-ui);
+      font-size: 13px;
+      color: var(--text-secondary);
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Scan line (left panel image preview) ── */
+    .scan-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      height: 2px;
+      background: var(--cyan);
+      opacity: 0.5;
+      display: none;
+      pointer-events: none;
+      z-index: 5;
+      animation: scanLine 2s linear infinite;
+    }
+
+    .preview-frame.scanning .scan-line {
+      display: block;
+    }
+
+    /* ── Error card ── */
+    .error-card {
+      margin: 40px 40px 60px;
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      background: rgba(245, 158, 11, 0.05);
+      border-radius: 6px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .error-card-icon {
+      width: 28px;
+      height: 28px;
+      color: #F59E0B;
+      flex-shrink: 0;
+    }
+
+    .error-card-title {
+      font-family: var(--font-ui);
+      font-size: 14px;
+      font-weight: 600;
+      color: #F59E0B;
+    }
+
+    .error-card-message {
+      font-family: var(--font-ui);
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .error-card-hint {
+      font-family: var(--font-ui);
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.03em;
+      margin-top: 4px;
+    }
+
+    /* ── Toast notification ── */
+    .toast {
+      position: fixed;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%) translateY(8px);
+      background: #0D1320;
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--cyan);
+      border-radius: 5px;
+      padding: 10px 18px;
+      font-family: var(--font-ui);
+      font-size: 12px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      z-index: 999;
+    }
+
+    .toast.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ── Section entrance animation (live report only) ── */
+    #reportLive .report-section {
+      animation: sectionFadeIn 0.4s ease both;
+    }
+    #reportLive .report-section:nth-child(1) { animation-delay:   0ms; }
+    #reportLive .report-section:nth-child(2) { animation-delay:  80ms; }
+    #reportLive .report-section:nth-child(3) { animation-delay: 160ms; }
+    #reportLive .report-section:nth-child(4) { animation-delay: 240ms; }
+    #reportLive .report-section:nth-child(5) { animation-delay: 320ms; }
+    #reportLive .report-section:nth-child(6) { animation-delay: 400ms; }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 12px 32px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: var(--bg-secondary);
+    }
+
+    .disclaimer {
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .disclaimer-icon {
+      width: 13px;
+      height: 13px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      opacity: 0.7;
+    }
+
+    .footer-version {
+      font-size: 10px;
+      color: var(--text-ghost);
+      letter-spacing: 0.08em;
+      font-family: var(--font-ui);
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+        overflow: visible;
+      }
+
+      .panel-upload {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        overflow-y: visible;
+      }
+
+      .panel-report {
+        min-height: 600px;
+      }
+
+      body {
+        overflow-y: auto;
+      }
+
+      main {
+        overflow: visible;
+      }
+
+      header {
+        padding: 0 20px;
+      }
+
+      .header-subtitle {
+        display: none;
+      }
+
+      footer {
+        padding: 12px 20px;
+      }
+
+      .panel-upload {
+        padding: 20px;
+      }
+
+      .report-header {
+        padding: 16px 20px;
+      }
+
+      .report-body {
+        padding: 28px 20px 40px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .meta-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .report-actions {
+        display: none;
+      }
+    }
+  </style>
+  <style media="print">
+    @page { margin: 20mm; }
+    header, footer, .panel-upload, .report-header,
+    #loadingSpinner, #ghostOverlay, .placeholder-overlay,
+    .scan-line { display: none !important; }
+
+    body, html { background: white !important; color: black !important; height: auto !important; }
+    main { display: block !important; }
+    .panel-report { background: white !important; box-shadow: none !important; overflow: visible !important; }
+
+    #reportLive {
+      display: flex !important;
+      padding: 0 !important;
+    }
+    #reportLive .section-number  { color: #888 !important; }
+    #reportLive .section-title   { color: #000 !important; }
+    #reportLive .section-divider { background: #ccc !important; }
+    .report-para, .report-li     { color: #333 !important; }
+    .report-subheading           { color: #555 !important; }
+    .report-ol .report-li::before { color: #000 !important; }
+    .report-ul .report-li        { border-left-color: #ccc !important; }
+    .report-li strong,
+    .report-para strong          { color: #000 !important; }
+  </style>
+</head>
+<body>
+
+  <!-- ── Header ── -->
+  <header>
+    <div class="header-brand">
+      <div class="header-logo">Rad<span>Report</span></div>
+      <div class="header-subtitle">AI-Assisted Radiology Analysis</div>
+    </div>
+    <div class="header-badge">Beta</div>
+  </header>
+
+  <!-- Hidden file input — triggered programmatically -->
+  <input
+    type="file"
+    id="fileInput"
+    accept="image/jpeg,image/png,image/webp"
+    hidden
+    aria-hidden="true"
+  />
+
+  <!-- ── Main ── -->
+  <main>
+
+    <!-- Left — Upload panel -->
+    <section class="panel-upload" aria-label="Image upload">
+
+      <!-- API key input -->
+      <div class="api-key-section">
+        <div class="panel-label">API Key</div>
+        <div class="api-key-input-wrap">
+          <input
+            type="password"
+            id="apiKeyInput"
+            class="api-key-input"
+            placeholder="sk-ant-…"
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="Anthropic API key"
+          />
+          <button
+            class="api-key-toggle"
+            id="apiKeyToggle"
+            type="button"
+            aria-label="Show/hide API key"
+            title="Show/hide key"
+          >
+            <!-- Eye icon (show) -->
+            <svg id="iconEye" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M1 8C1 8 3.5 3 8 3s7 5 7 5-2.5 5-7 5S1 8 1 8Z" stroke="currentColor" stroke-width="1.2"/>
+              <circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.2"/>
+            </svg>
+            <!-- Eye-off icon (hide) — shown when key is visible -->
+            <svg id="iconEyeOff" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:none">
+              <path d="M1 8C1 8 3.5 3 8 3s7 5 7 5-2.5 5-7 5S1 8 1 8Z" stroke="currentColor" stroke-width="1.2"/>
+              <circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.2"/>
+              <line x1="2" y1="2" x2="14" y2="14" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        <div class="api-key-hint">
+          Your key is never stored or sent anywhere except Anthropic.
+          Get one at <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a>.
+        </div>
+      </div>
+
+      <div class="panel-label">Image Input</div>
+
+      <!-- Drop zone -->
+      <div
+        class="drop-zone"
+        id="dropZone"
+        role="button"
+        tabindex="0"
+        aria-label="Upload medical image — click or drag and drop"
+      >
+        <div class="drop-zone-icon">
+          <svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="4" y="10" width="48" height="36" rx="4" stroke="#00C2D1" stroke-width="2"/>
+            <circle cx="18" cy="22" r="5" stroke="#00C2D1" stroke-width="2"/>
+            <path d="M4 38 L16 26 L26 34 L36 22 L52 38" stroke="#00C2D1" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M28 5 L28 17 M22 11 L28 5 L34 11" stroke="#00C2D1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="drop-zone-title">
+          <strong>Drop a medical image or click to upload</strong>
+          Drag here or use the button below
+        </div>
+        <div class="drop-zone-formats">Supports JPEG, PNG, DICOM previews</div>
+        <button class="upload-btn" type="button">Select File</button>
+      </div>
+
+      <!-- Preview -->
+      <div class="preview-section">
+        <div class="panel-label">Preview</div>
+        <div class="preview-frame" id="previewFrame">
+          <!-- Empty state -->
+          <div class="preview-empty" id="previewEmpty">
+            <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="2" y="2" width="36" height="36" rx="3" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="13" cy="14" r="4" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M2 30 L12 20 L20 26 L28 16 L38 30" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            </svg>
+            <span class="preview-empty-text">No image loaded</span>
+          </div>
+          <!-- Populated state: thumbnail -->
+          <img
+            id="previewImg"
+            class="preview-img"
+            alt="Uploaded medical image"
+          />
+          <!-- Scan line — visible during analysis -->
+          <div class="scan-line" aria-hidden="true"></div>
+          <!-- Reset button -->
+          <button
+            class="reset-btn"
+            id="resetBtn"
+            type="button"
+            aria-label="Remove image"
+            title="Remove image"
+          >×</button>
+        </div>
+
+        <!-- Metadata grid -->
+        <div class="meta-grid">
+          <div class="meta-cell">
+            <div class="meta-key">Modality</div>
+            <div class="meta-value" id="metaModality">—</div>
+          </div>
+          <div class="meta-cell">
+            <div class="meta-key">File size</div>
+            <div class="meta-value" id="metaFileSize">—</div>
+          </div>
+          <div class="meta-cell">
+            <div class="meta-key">Dimensions</div>
+            <div class="meta-value" id="metaDimensions">—</div>
+          </div>
+          <div class="meta-cell">
+            <div class="meta-key">Format</div>
+            <div class="meta-value" id="metaFormat">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Analyze trigger -->
+      <button
+        class="analyze-btn"
+        id="analyzeBtn"
+        type="button"
+        disabled
+        aria-disabled="true"
+      >
+        Analyze Image
+      </button>
+
+    </section>
+
+    <!-- Right — Report panel -->
+    <section class="panel-report" aria-label="Radiology report">
+
+      <div class="report-header">
+        <div class="report-header-left">
+          <div class="report-title-label">Radiology Report</div>
+          <div class="report-status">
+            <span class="status-dot" id="statusDot"></span>
+            <span id="reportStatus">Awaiting image</span>
+          </div>
+          <div class="report-timestamp" id="reportTimestamp"></div>
+        </div>
+        <div class="report-actions">
+          <button class="action-btn" id="exportPdfBtn" type="button" disabled>Export PDF</button>
+          <button class="action-btn" id="copyTextBtn"  type="button" disabled>Copy Text</button>
+        </div>
+      </div>
+
+      <!-- Report body with ghost placeholder -->
+      <div class="report-body-wrap">
+
+        <!-- Loading spinner — visible during API call -->
+        <div id="loadingSpinner" aria-live="polite" aria-label="Analyzing">
+          <div class="spinner-ring"></div>
+          <div class="spinner-text">Analyzing image with AI…</div>
+        </div>
+
+        <!-- Placeholder message -->
+        <div class="placeholder-overlay" aria-hidden="true">
+          <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22 4 L38 14 L38 30 L22 40 L6 30 L6 14 Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            <path d="M22 16 L22 28 M16 22 L28 22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <div class="placeholder-overlay-title">Report will appear here</div>
+          <div class="placeholder-overlay-sub">Upload a chest X-ray, CT scan, or MRI to generate a structured clinical report.</div>
+        </div>
+
+        <!-- Live rendered report — populated by renderReport() -->
+        <div id="reportLive" role="region" aria-label="Generated report"></div>
+
+        <!-- Ghost structure -->
+        <div id="ghostOverlay" class="report-body ghost-overlay" aria-hidden="true">
+
+          <div class="report-section">
+            <div class="report-section-header">
+              <span class="section-number">01</span>
+              <span class="section-title">Technique</span>
+              <span class="section-divider"></span>
+            </div>
+            <div class="section-content">
+              <div class="ghost-line w-full"></div>
+              <div class="ghost-line w-80"></div>
+              <div class="ghost-line w-90"></div>
+            </div>
+          </div>
+
+          <div class="report-section">
+            <div class="report-section-header">
+              <span class="section-number">02</span>
+              <span class="section-title">Clinical Findings</span>
+              <span class="section-divider"></span>
+            </div>
+            <div class="section-content">
+              <div class="ghost-line w-full"></div>
+              <div class="ghost-line w-90"></div>
+              <div class="ghost-line w-full"></div>
+              <div class="ghost-line w-80"></div>
+              <div class="ghost-line w-70 gap-top"></div>
+              <div class="ghost-line w-full"></div>
+              <div class="ghost-line w-90"></div>
+              <div class="ghost-line w-60"></div>
+              <div class="ghost-line w-80 gap-top"></div>
+              <div class="ghost-line w-full"></div>
+              <div class="ghost-line w-45"></div>
+            </div>
+          </div>
+
+          <div class="report-section">
+            <div class="report-section-header">
+              <span class="section-number">03</span>
+              <span class="section-title">Impression</span>
+              <span class="section-divider"></span>
+            </div>
+            <div class="section-content">
+              <div class="ghost-line w-full"></div>
+              <div class="ghost-line w-80"></div>
+              <div class="ghost-line w-70"></div>
+            </div>
+          </div>
+
+          <div class="report-section">
+            <div class="report-section-header">
+              <span class="section-number">04</span>
+              <span class="section-title">Recommendations</span>
+              <span class="section-divider"></span>
+            </div>
+            <div class="section-content">
+              <div class="ghost-line w-90"></div>
+              <div class="ghost-line w-full"></div>
+              <div class="ghost-line w-60"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- ── Footer ── -->
+  <footer>
+    <div class="disclaimer">
+      <svg class="disclaimer-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M8 5 L8 9" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        <circle cx="8" cy="11.5" r="0.6" fill="currentColor"/>
+      </svg>
+      For educational and research purposes only. Not for clinical use.
+    </div>
+    <div class="footer-version">v1.0.0</div>
+  </footer>
+
+  <!-- Toast notification -->
+  <div class="toast" id="toastEl" role="status" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,11 @@
+# API keys / secrets
+*.env
+config.js
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
